@@ -1,5 +1,11 @@
 classdef EKF_rocket
     properties
+        %{
+            x: system state
+            P: system covariance
+            Ts: integration period
+        %}
+        
         x;
         P;
         Ts;
@@ -27,6 +33,11 @@ classdef EKF_rocket
         end
 
         function gps_vel_2d = gps_vel_2d_from_vel_course(obj,V_kmh,course_deg)
+            %{
+                Returns speed as a 2D vector using GPS data
+                V_kmh: speed in km/h
+                course_deg: the angle travelled by the vehicle
+            %}
                 V = V_kmh*(60*60/1000); % km/s to m/s
                 course_rad = rad2deg(course_deg); % deg to rad
                 gps_vel_2d = [V*cos(course_rad);V*sin(course_rad)]; % m/s
@@ -38,6 +49,9 @@ classdef EKF_rocket
         end
 
         function rot_mat = get_rotmat_body_2_inertial(obj)
+            %{
+                Returns a rotation matrix body-frame => intertial-frame
+            %}
             q0 = obj.x(1);
             q1 = obj.x(2);
             q2 = obj.x(3);
@@ -93,6 +107,15 @@ classdef EKF_rocket
         end
 
         function F = predict_jacobian(obj,ang_delta,vel_delta,dt)
+            %{
+            Returns the F matrix for EKF calculations.
+            
+            F = jacobian w/ respect to x of function f s.t.
+            x^{.} = f(x^{^}, u) + w
+            
+            Note that the content of this matrix has been pre-determined,
+            Only numerical values are set at run-time.
+            %}
             q0 = obj.x(1);
             q1 = obj.x(2);
             q2 = obj.x(3);
@@ -144,6 +167,15 @@ classdef EKF_rocket
         end
 
         function G = predict_process_noise(obj,w)
+            %{
+            Returns the G matrix for EKF calculations.
+            
+            G = jacobian w/ respect to w of function f s.t.
+            x^{.} = f(x^{^}, u) + w
+            
+            Note that the content of this matrix has been pre-determined,
+            Only numerical values are set at run-time.
+            %}
             daxCov = w(1);
             dayCov = w(2);
             dazCov = w(3);
@@ -184,6 +216,10 @@ classdef EKF_rocket
         end
 
         function x = predict_state(obj,ang_delta,vel_delta,dt)
+            %{
+                Realises prediction computations.
+                Returns the a priori prediction. 
+            %}
             x = obj.x;
             q0 = x(1);
             q1 = x(2);
@@ -243,7 +279,7 @@ classdef EKF_rocket
             qinit = quaternion(q0,q1,q2,q3);
 %             x(1:4) = compact(normalize(qinit * quaternion(ang_delta - [dax_b, day_b, daz_b], 'rotvec')));
               delta_q = [1;(ang_delta'-[dax_b; day_b; daz_b])/2];
-              x(1:4) = obj.mult_quat([q0;q1;q2;q3],delta_q);
+              x(1:4) = obj.mult_quat([q0;q1;q2;q3],delta_q); % FIXME : on est pas censé faire ça après le à posteriori ?
         end
 
         function qn = mult_quat(obj,q1,q2)
@@ -255,9 +291,13 @@ classdef EKF_rocket
         end
 
         function obj = predict_step(obj,accB,omegaB,Ts)
+            %{
+                Realises all the steps within one cycle.
+            %}
+            
             % state prediction
 
-            ang_delta= omegaB'*Ts;
+            ang_delta= omegaB'*Ts; % reset sur l'erreur : OK
             vel_delta = accB'*Ts;
 
             x_new = obj.predict_state(ang_delta,vel_delta,Ts);
@@ -285,6 +325,10 @@ classdef EKF_rocket
         end
 
         function [x_new,P_new]  = update_step(obj,z,h_x,H,R)
+            %{
+                Truns the a priori prediction into the a posteriori one for a given measurement point
+            %}
+            
             nx = size(obj.x,1);
             inov = z-h_x;
             S = H*obj.P*(H')+R;
@@ -488,11 +532,3 @@ classdef EKF_rocket
     end
 
 end
-
-
-
-
-
-
-
-
