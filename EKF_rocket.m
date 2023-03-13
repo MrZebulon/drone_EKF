@@ -338,7 +338,10 @@ classdef EKF_rocket
         end
 
         function obj = update_step_gps_pos(obj,lla,lla0)
-
+            %{
+                A posteriori prediction for GPS position
+            %}
+            
             z = lla2ned(lla',lla0','flat')';
 
             Rpos = 2.56;
@@ -356,6 +359,9 @@ classdef EKF_rocket
         end
 
         function obj = update_step_baro(obj,z)
+            %{
+                A posteriori prediction for barometric sensors
+            %}
 
             R_baro = 0.1;
 
@@ -371,6 +377,9 @@ classdef EKF_rocket
         end
 
         function obj = update_step_gps_vel(obj,z)
+            %{
+                A posteriori prediction for GPS velocity
+            %}
 
             Rvel = 0.01;
 
@@ -386,7 +395,7 @@ classdef EKF_rocket
             obj.P = P_new;
         end
 
-                function obj = update_step_gps_vel_2d(obj,z)
+        function obj = update_step_gps_vel_2d(obj,z)
 
             Rvel2d = 0.01;
 
@@ -403,7 +412,9 @@ classdef EKF_rocket
         end
 
         function obj = update_step_attitude_acc_mag(obj,acc_b,mag_b)
-
+            %{
+                A posteriori prediction for accelerometer and magnetometer
+            %}
 
             euler = obj.eulerZYX_from_acc_mag(acc_b,mag_b);
             z = obj.eulZYX2quat(euler);
@@ -437,6 +448,9 @@ classdef EKF_rocket
         
 
         function [obj] = update_step_gps_pos_vel(obj,lla,lla0,gpsVel)
+            %{
+                A posteriori prediction for GPS position & velocity
+            %}
 
             z_pos = lla2ned(lla',lla0','flat')';
             z = [z_pos;gpsVel];
