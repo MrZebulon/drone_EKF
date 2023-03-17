@@ -178,7 +178,7 @@ classdef EKF_rocket
             S = H*obj.P*(H')+R;
             K = obj.P*(H')*inv(S);
             x_new = obj.x + K*inov;
-            P_new = (eye(nx)-K*H)*obj.P;
+            P_new = (eye(nx)-K*H)*obj.P; % FIXME : why not (eye(nx)-K*H)*obj.P*(eye(nx)-K*H)' + K*R*K' ?
         end
    
         function [x_new,P_new] = update_step_sensors(obj, z)
