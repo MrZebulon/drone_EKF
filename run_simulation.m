@@ -36,14 +36,8 @@ initstate = zeros(22,1);
 initstate(1:4) = compact( meanrot(ld.trajData.Orientation(1:Nav))); 
 initstate(5:7) = mean( ld.trajData.Position(1:Nav,:), 1);
 initstate(8:10) = mean( ld.trajData.Velocity(1:Nav,:), 1);
-initstate(11:13) =  ld.imu.Gyroscope.ConstantBias./Fs;
-initstate(14:16) =  ld.imu.Accelerometer.ConstantBias./Fs;
-initstate(17:19) =  ld.imu.MagneticField;
-initstate(20:22) = ld.imu.Magnetometer.ConstantBias;
-
 
 P0 = ones(22)*1e-9;
-
 
 ekf = EKF_rocket(initstate,P0);
 
@@ -119,7 +113,8 @@ for k = 1:size(ld.trajData.Position,1)
     if(use_mag && (mod(k,fix(Fs/Fs_mag))==0))
         ekf = ekf.update_step_mag(mag');
     end
-
+    
+    %Error plots related
     z_gps = lla2ned(lla,ld.gps.ReferenceLocation,'flat');
     x_traj(k,:) = ekf.x';
     gps_traj(k,:) = [z_gps,gpsvel];
