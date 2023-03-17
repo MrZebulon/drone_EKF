@@ -19,6 +19,8 @@ classdef EKF_rocket
         scale_var = -1;
         vel_delta_bias_sigma = -1;
 
+        measurement_uncertainty = 0.09; % FIXME calibration
+
     end
 
     methods
@@ -43,6 +45,10 @@ classdef EKF_rocket
             v = obj.x(4:6);
         end
 
+        function v = get_acc_bias(obj)
+            v = obj.x(7:9);
+        end
+
         function P = get_process_cov(obj)
             P = obj.P;
         end
@@ -53,19 +59,29 @@ classdef EKF_rocket
             Returns the F matrix (n by n, n = len(x)) for EKF calculations.
             
             F = jacobian w/ respect to x of function f s.t.
-            x^{.} = f(x^{^}, u) + w
+            x^{.} = f(x^{^}, u, w)
             
             Note that the content of this matrix has been pre-determined,
             Only numerical values are set at run-time.
             %}
+
+            dvn = vel_delta(1);
+            dve = vel_delta(2);
+            dvd = vel_delta(3);
+            acc_bias_n = obj.x(7);
+            acc_bias_e = obj.x(7);
+            acc_bias_d = obj.x(7);
             
             F = [...
-                0, 0, 0, dt, 0, 0
-                0, 0, 0, 0, dt, 0
-                0, 0, 0, 0, 0, dt
-                0, 0, 0, 0, 0, 0
-                0, 0, 0, 0, 0, 0
-                0, 0, 0, 0, 0, 0];
+                1, 0, 0,    dt, 0, 0,                   0, 0, 0
+                0, 1, 0,    0, dt, 0,                   0, 0, 0
+                0, 0, 1,    0, 0, dt,                   0, 0, 0
+                0, 0, 0,    (dvn - acc_bias_n), 0, 0,   1, 0, 0
+                0, 0, 0,    0, (dve - acc_bias_e), 0,   0, 1, 0
+                0, 0, 0,    0, 0, (dvd - acc_bias_d),   0, 0, 1
+                0, 0, 0,    0, 0, 0,                    0, 0, 0
+                0, 0, 0,    0, 0, 0,                    0, 0, 0
+                0, 0, 0,    0, 0, 0,                    0, 0, 0];
         end
 
         function G = predict_process_noise(obj,w)
@@ -73,18 +89,25 @@ classdef EKF_rocket
             Returns the G matrix (n by n, n = len(x)) for EKF calculations.
             
             G = jacobian w/ respect to w of function f s.t.
-            x^{.} = f(x^{^}, u) + w
+            x^{.} = f(x^{^}, u, w)
             
             Note that the content of this matrix has been pre-determined,
             Only numerical values are set at run-time.
             %}
+            dvnCov = w(1);
+            dveCov = w(2);
+            dvdCov = w(3);
 
-            G = [0, 0, 0, 0, 0, 0
-                0, 0, 0, 0, 0, 0
-                0, 0, 0, 0, 0, 0
-                0, 0, 0, 0, 0, 0
-                0, 0, 0, 0, 0, 0
-                0, 0, 0, 0, 0, 0];
+            G = [...
+                0, 0, 0,    0, 0, 0,        0, 0, 0
+                0, 0, 0,    0, 0, 0,        0, 0, 0
+                0, 0, 0,    0, 0, 0,        0, 0, 0
+                0, 0, 0,    dvnCov, 0, 0,   0, 0, 0
+                0, 0, 0,    0, dveCov, 0,   0, 0, 0
+                0, 0, 0,    0, 0, dvdCov,   0, 0, 0
+                0, 0, 0,    0, 0, 0,        0, 0, 0
+                0, 0, 0,    0, 0, 0,        0, 0, 0
+                0, 0, 0,    0, 0, 0,        0, 0, 0];
         end
 
         function x = predict_state(obj,vel_delta,dt)
@@ -93,21 +116,30 @@ classdef EKF_rocket
                 Returns the a priori prediction. 
             %}
             x = obj.x;
-
             pn = x(1);
             pe = x(2);
             pd = x(3);
             vn = x(4);
             ve = x(5);
             vd = x(6);
+            acc_bias_n = x(7);
+            acc_bias_e = x(8);
+            acc_bias_d = x(9);
+
+            dvn = vel_delta(1);
+            dve = vel_delta(2);
+            dvd = vel_delta(3);
 
             x = [
                 pn + vn * dt
                 pe + ve * dt
                 pd + vd * dt
-                vn
-                ve
-                vd];
+                vn + (dvn - acc_bias_n)
+                ve + (dve - acc_bias_e)
+                vd + (dvd - acc_bias_d)
+                acc_bias_n
+                acc_bias_e
+                acc_bias_d];
         end
 
         function obj = predict_step(obj,accB,Ts)
@@ -149,33 +181,41 @@ classdef EKF_rocket
             P_new = (eye(nx)-K*H)*obj.P;
         end
    
-        function [x_new,P_new] = update_step_sensors(x, P, z)
-        
-            R = eye(3) * 0; % FIXME calibration
+        function [x_new,P_new] = update_step_sensors(obj, z)
+            %{
+                "Meta-function", use this to call update
+                Kept separate to split math and sensors.
+            %}
+            R = eye(3) * obj.measurement_uncertainty;
             h_x = sensors_measurement_model();
             H = sensors_measurement_jacobian();
             
-            [x_new, P_new] = update_step(x, P, z, h_x, H, R);
+            [x_new, P_new] = update_step(z, h_x, H, R);
         end
 
         function H = sensors_measurement_jacobian(obj)
+            %{
+                Jacobian matrix of the sensor model
+            %}
             H = [...
-                0, 0, 0, 1, 0, 0
-                0, 0, 0, 0, 1, 0
-                0, 0, 0, 0, 0, 1];
+                0, 0, 0,    1, 0, 0,    0, 0, 0
+                0, 0, 0,    0, 1, 0,    0, 0, 0
+                0, 0, 0,    0, 0, 1,    0, 0, 0];
         end
 
         function h_x = sensors_measurement_model(obj)
-            x = obj.x;
-            vn = x(4);
-            ve = x(5);
-            vd = x(6);
-            h_x = [vn ve vd]'; % FIXME ?
+            %{
+                Sensor model, currently : only uses velocity
+            %}
+            vn = obj.x(4);
+            ve = obj.x(5);
+            vd = obj.x(6);
+            h_x = [vn ve vd]';
         end
        
         function obj = EKF_rocket(x_init,init_process_cov)
             obj.x = x_init;
-            obj.P = ones(22)*init_process_cov;
+            obj.P = ones(9)*init_process_cov;
         end
 
         function [obj,Qs,w] = set_additive_noise(obj,Ts)
@@ -183,10 +223,9 @@ classdef EKF_rocket
 
             obj.scale_var = 0.5*(1./(Fs.^2));
             obj.vel_delta_bias_sigma = obj.scale_var .* obj.AccelerometerBiasNoise;
-
             w = obj.scale_var.*[obj.AccelerometerNoise*ones(1,3)];
 
-            Qs = diag([obj.additiveNoise.*ones(1,10), obj.vel_delta_bias_sigma*ones(1,3)]);
+            Qs = diag([zeros(1, 3), obj.vel_delta_bias_sigma*ones(1,3), zeros(1,3)]);
 
         end
 
