@@ -36,6 +36,7 @@ initstate = zeros(22,1);
 initstate(1:4) = compact( meanrot(ld.trajData.Orientation(1:Nav))); 
 initstate(5:7) = mean( ld.trajData.Position(1:Nav,:), 1);
 initstate(8:10) = mean( ld.trajData.Velocity(1:Nav,:), 1);
+initstate(11:13) = mean( ld.trajData.AngularVelocity(1:Nav,:), 1);
 
 P0 = ones(22)*1e-9;
 

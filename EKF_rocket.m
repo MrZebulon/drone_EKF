@@ -74,6 +74,10 @@ classdef EKF_rocket
             v = obj.x(8:10);
         end
 
+        function omega_b = get_angular_velocity_body_frame(obj)
+            v = obj.x(11:13);
+        end
+
         function euler = get_eulerZYX(obj)
             q = obj.x(1:4);
             euler = quat2eul(q','ZYX');
