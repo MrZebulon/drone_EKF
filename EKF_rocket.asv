@@ -11,12 +11,15 @@ classdef EKF_rocket
         Ts;
 
         AccelerometerNoise = 2;
+        GyroscopeNoise = 0;
 
         % extra additive noise
         AccelerometerBiasNoise =  2e-4;
+        GyroscopeBiasNoise = 0
         additiveNoise = 1e-8;
 
         scale_var = -1;
+        ang_delta_bias_sigma = -1;
         vel_delta_bias_sigma = -1;
 
     end
@@ -43,12 +46,24 @@ classdef EKF_rocket
             v = obj.x(4:6);
         end
 
+        function omega_b = get_angular_velocity_body_frame(obj)
+            v = obj.x(11:13);
+        end
+
+        function euler = get_eulerZYX(obj)
+            q = obj.x(1:4);
+            euler = quat2eul(q','ZYX');
+        end
+
         function P = get_process_cov(obj)
             P = obj.P;
         end
 
+        function q = eulZYX2quat(obj,euler)
+            q = (eul2quat(euler','ZYX'))';
+        end
 
-        function F = predict_jacobian(obj,vel_delta,dt)
+        function F = predict_jacobian(obj,ang_delta,vel_delta,dt)
             %{
             Returns the F matrix (n by n, n = len(x)) for EKF calculations.
             
@@ -66,11 +81,13 @@ classdef EKF_rocket
                 0, 0, 0, 0, 0, 0
                 0, 0, 0, 0, 0, 0
                 0, 0, 0, 0, 0, 0];
+
+
         end
 
         function G = predict_process_noise(obj,w)
             %{
-            Returns the G matrix (n by n, n = len(x)) for EKF calculations.
+            Returns the G matrix (n by p, n = len(x) p = len(u) for EKF calculations.
             
             G = jacobian w/ respect to w of function f s.t.
             x^{.} = f(x^{^}, u) + w
@@ -85,55 +102,89 @@ classdef EKF_rocket
                 0, 0, 0, 0, 0, 0
                 0, 0, 0, 0, 0, 0
                 0, 0, 0, 0, 0, 0];
+
         end
 
-        function x = predict_state(obj,vel_delta,dt)
+        function x = predict_state(obj,ang_delta,vel_delta,dt)
             %{
                 Realises prediction computations.
                 Returns the a priori prediction. 
             %}
             x = obj.x;
 
-            pn = x(1);
-            pe = x(2);
-            pd = x(3);
-            vn = x(4);
-            ve = x(5);
-            vd = x(6);
+            pn = x(5);
+            pe = x(6);
+            pd = x(7);
+            vn = x(8);
+            ve = x(9);
+            vd = x(10);
 
             x = [
+                0
+                0
+                0
+                0
                 pn + vn * dt
                 pe + ve * dt
                 pd + vd * dt
                 vn
                 ve
-                vd];
+                vd
+                0
+                0
+                0];
+
+            %{
+                KEEP IN CASE WE MEASURE ORIENTATION
+
+                qinit = quaternion(q0,q1,q2,q3);
+                % x(1:4) = compact(normalize(qinit * quaternion(ang_delta - [dax_b, day_b, daz_b], 'rotvec')));
+                delta_q = [1;(ang_delta'-[dax_b; day_b; daz_b])/2];
+                x(1:4) = obj.mult_quat([q0;q1;q2;q3],delta_q);
+            %}
         end
 
-        function obj = predict_step(obj,accB,Ts)
+        function qn = mult_quat(obj,q1,q2)
+            qnew_0 = q1(1)*q2(1)     -q1(2)*q2(2) - q1(3)*q2(3)-q1(4)*q2(4);
+            qnew_1 = q1(1)*q2(2)      +q2(1)*q1(2)+ q1(3)*q2(4)-q2(3)*q1(4);
+            qnew_2 = q1(1)*q2(3)      +q2(1)*q1(3) - q1(2)*q2(4)+q2(2)*q1(4);
+            qnew_3 = q1(1)*q2(4)+      q2(1)*q1(4) + q1(2)*q2(3)-q2(2)*q1(3);
+            qn = [qnew_0;qnew_1;qnew_2;qnew_3];
+        end
+
+        function obj = predict_step(obj,accB,omegaB,Ts)
             %{
                 Realises all the steps for a priori estimation.
             %}
             
             % state prediction
 
+            ang_delta= omegaB'*Ts; % reset sur l'erreur : OK
             vel_delta = accB'*Ts;
 
-            x_new = obj.predict_state(vel_delta,Ts);
+            x_new = obj.predict_state(ang_delta,vel_delta,Ts);
 
             % covariance prediction
 
             [~,Qs,w] = obj.set_additive_noise(Ts);
 
             G = obj.predict_process_noise(w);
-            F = obj.predict_jacobian(vel_delta,Ts);
+            F = obj.predict_jacobian(ang_delta,vel_delta,Ts);
 
             P_new = F*obj.P*(F')+G+Qs;
+
+            % FIXME : adapt here if q = 0 at all times
+            x_new = obj.quaternion_normalisation(x_new);
             P_new = 0.5*(P_new+P_new');
 
             obj.x = x_new;
             obj.P = P_new;
 
+        end
+
+        function x_next = quaternion_normalisation(obj,x)
+            x_next = x;
+            x_next(1:4) = x(1:4)/norm(x(1:4));
         end
 
         function [x_new,P_new]  = update_step(obj,z,h_x,H,R)
@@ -155,21 +206,18 @@ classdef EKF_rocket
             h_x = sensors_measurement_model();
             H = sensors_measurement_jacobian();
             
-            [x_new, P_new] = update_step(x, P, z, h_x, H, R);
+            [x_new,P_new] = update_step(x, P, z, h_x, H, R);
         end
 
         function H = sensors_measurement_jacobian(obj)
-            H = [...
-                0, 0, 0, 1, 0, 0
-                0, 0, 0, 0, 1, 0
-                0, 0, 0, 0, 0, 1];
+            H = eye(3);
         end
 
         function h_x = sensors_measurement_model(obj)
             x = obj.x;
-            vn = x(4);
-            ve = x(5);
-            vd = x(6);
+            vn = x(8);
+            ve = x(9);
+            vd = x(10);
             h_x = [vn ve vd]'; % FIXME ?
         end
        
@@ -182,11 +230,12 @@ classdef EKF_rocket
             Fs = 1/Ts;
 
             obj.scale_var = 0.5*(1./(Fs.^2));
+            obj.ang_delta_bias_sigma = obj.scale_var .* obj.GyroscopeBiasNoise;
             obj.vel_delta_bias_sigma = obj.scale_var .* obj.AccelerometerBiasNoise;
 
-            w = obj.scale_var.*[obj.AccelerometerNoise*ones(1,3)];
+            w = obj.scale_var.*[obj.GyroscopeNoise*ones(1,3), obj.AccelerometerNoise*ones(1,3)];
 
-            Qs = diag([obj.additiveNoise.*ones(1,10), obj.vel_delta_bias_sigma*ones(1,3)]);
+            Qs = diag([obj.additiveNoise.*ones(1,10), obj.ang_delta_bias_sigma*ones(1,3), obj.vel_delta_bias_sigma*ones(1,3),  obj.GeomagneticVectorNoise*ones(1,3), obj.MagnetometerBiasNoise*ones(1,3)]);
 
         end
 
