@@ -74,8 +74,7 @@ classdef EKF_rocket
 
         function x = predict_state(obj,u,dt)
             %{
-                Realises prediction computations.
-                Returns the a priori prediction. 
+                Performs the a priori prediction.
             %}
             x = obj.x;
             pn = x(1);
