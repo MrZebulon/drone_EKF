@@ -168,7 +168,7 @@ classdef EKF_rocket
                 Kept separate to split math and sensors.
             %}
             R = eye(3) * obj.measurement_uncertainty;
-            h_x = sensors_measurement_model(z);
+            h_x = sensors_measurement_model();
             H = sensors_measurement_jacobian();
             
             [x_new, P_new] = update_step(z, h_x, H, R);
