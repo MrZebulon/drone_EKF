@@ -53,7 +53,6 @@ classdef EKF_rocket
             P = obj.P;
         end
 
-
         function F = predict_jacobian_preintegrated(obj,dt)
             %{
                 Returns a preintegrated F matrix (jacobian w/ respect to x of
@@ -61,15 +60,38 @@ classdef EKF_rocket
             %}
             
             F = [...
-                1, 0, 0,    dt, 0, 0,    0, 0, 0
-                0, 1, 0,    0, dt, 0,    0, 0, 0
-                0, 0, 1,    0, 0, dt,    0, 0, 0
+                1, 0, 0,    dt, 0, 0,   0, 0, 0
+                0, 1, 0,    0, dt, 0,   0, 0, 0
+                0, 0, 1,    0, 0, dt,   0, 0, 0
                 0, 0, 0,    1, 0, 0,    1, 0, 0
                 0, 0, 0,    0, 1, 0,    0, 1, 0
                 0, 0, 0,    0, 0, 1,    0, 0, 1
                 0, 0, 0,    0, 0, 0,    1, 0, 0
                 0, 0, 0,    0, 0, 0,    0, 1, 0
                 0, 0, 0,    0, 0, 0,    0, 0, 1];
+        end
+
+        function G = predict_covariance_preintegrated(obj,w)
+            %{
+                Returns a preintegrated F matrix (jacobian w/ respect to w of
+                function f)
+            %}
+
+            cov_acc_n = w(1);
+            cov_acc_e = w(2);
+            cov_acc_d = w(3);
+
+            
+            G = [...
+                0, 0, 0
+                0, 0, 0
+                0, 0, 0
+                cov_acc_n, 0, 0
+                0, cov_acc_e, 0
+                0, 0, cov_acc_d
+                0, 0, 0
+                0, 0, 0
+                0, 0, 0];
         end
 
         function x = predict_state(obj,u,dt)
@@ -117,7 +139,9 @@ classdef EKF_rocket
             [~,Qs,w] = obj.set_additive_noise(Ts);
 
             F = obj.predict_jacobian_preintegrated(u,Ts);
-            P_new = F*obj.P*(F')+Qs;
+            G = obj.predict_covariance_preintegrated(w);
+            P_new = F*obj.P*(F')+G*Qs*(G');
+
             P_new = 0.5*(P_new+P_new');
 
             obj.x = x_new + w;
@@ -144,7 +168,7 @@ classdef EKF_rocket
                 Kept separate to split math and sensors.
             %}
             R = eye(3) * obj.measurement_uncertainty;
-            h_x = sensors_measurement_model();
+            h_x = sensors_measurement_model(z);
             H = sensors_measurement_jacobian();
             
             [x_new, P_new] = update_step(z, h_x, H, R);
@@ -154,10 +178,14 @@ classdef EKF_rocket
             %{
                 Sensor model, currently : only uses velocity
             %}
+            pn = obj.x(1);
+            pe = obj.x(2);
+            pd = obj.x(3);
+
             vn = obj.x(4);
             ve = obj.x(5);
             vd = obj.x(6);
-            h_x = [vn ve vd]';
+            h_x = [pn pe pd vn ve vd]';
         end
 
         function H = sensors_measurement_jacobian(obj)
@@ -165,6 +193,9 @@ classdef EKF_rocket
                 Jacobian matrix of the sensor model
             %}
             H = [...
+                1, 0, 0,    0, 0, 0,    0, 0, 0
+                0, 1, 0,    0, 0, 0,    0, 0, 0
+                0, 0, 1,    0, 0, 0,    0, 0, 0
                 0, 0, 0,    1, 0, 0,    0, 0, 0
                 0, 0, 0,    0, 1, 0,    0, 0, 0
                 0, 0, 0,    0, 0, 1,    0, 0, 0];
@@ -182,8 +213,7 @@ classdef EKF_rocket
             obj.scale_var = 0.5*(1./(Fs.^2));
             obj.vel_delta_bias_sigma = obj.scale_var .* obj.AccelerometerBiasNoise;
             w = obj.scale_var.*[obj.AccelerometerNoise*ones(1,3)];
-
-            Qs = diag([zeros(1, 3), obj.vel_delta_bias_sigma*ones(1,3), zeros(1,3)]);
+            Qs = diag([obj.vel_delta_bias_sigma*ones(1,3)]);
 
         end
 

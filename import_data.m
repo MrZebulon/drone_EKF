@@ -1,11 +1,8 @@
-function trajData = import_data(file)
-    headers = ["vel", "accel", "gyro", "orientation"];
-    
+function [pos, vel, accel, gyro, quat] = import_data(file)    
     T = readtable(file);
-    vel = T(:, [1, 2, 3]);
-    accel = T(:, [4, 5, 6]);
-    gyro = T(:, [7, 8, 9]);
-    quat = quaternion(T(:, [10, 11, 12, 13]));
-    T = table([vel accel gyro quat], "VariableNames", headers);
-    trajData = table2struct(T, "ToScalar", true);
+    pos = T(:, [1, 2, 3]);
+    vel = T(:, [4, 5, 6]);
+    accel = T(:, [47, 8, 9]);
+    gyro = T(:, [10, 11, 12]);
+    quat = quaternion(T(:, [13, 14, 15, 16]));
 end

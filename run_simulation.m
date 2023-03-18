@@ -71,12 +71,13 @@ end
 for k = 1:size(ld,1)
     
     % extracting next datapoint
+    pos = ld.pos(k, :);
     vel = ld.vel(k, :);
     accel = -ld.accel(k,:); % FIXME: '-' was there before
     
     % updating state
     ekf = ekf.predict_step(accel',Ts);
-    ekf = ekf.update_step_sensors(vel');
+    ekf = ekf.update_step_sensors([pos vel]');
 
     x_traj(k,:) = ekf.x';
 end
