@@ -144,7 +144,7 @@ classdef EKF_rocket
 
             P_new = 0.5*(P_new+P_new');
 
-            obj.x = x_new + w;
+            obj.x = x_new;
             obj.P = P_new;
 
         end
