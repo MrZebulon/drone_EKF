@@ -1,6 +1,5 @@
 clc,close all,clear all
 % EKF code - Samuel Wahba
-% Based on previous work from Alexandre Guerra de Oliveira
 % state variable: x = [ posNED, velNED, accBias ] (9x1)
 
 %use realtime plotter from "Pose Estimation From Asynchronous Sensors" from Matlab's exemple
@@ -11,13 +10,12 @@ plot_pos_vel = true;
 plot_bias = true;
 
 %% Load data
-% ld = load('CircularTrajectorySensorData.mat');
 %ld = load("drone_traj.mat");
 
 ld = import_data("");
 %% EKF parameters
 % sampling rate
-Fs = 160; %FIXME Sensor
+Fs = 160; % FIXME Sensor
 Ts = 1/Fs;
 
 %% initial state
@@ -73,12 +71,12 @@ end
 for k = 1:size(ld,1)
     
     % extracting next datapoint
-    accel = ld.accel(k,:);
-    accel = -accel;
+    vel = ld.vel(k, :);
+    accel = -ld.accel(k,:); % FIXME: '-' was there before
     
     % updating state
     ekf = ekf.predict_step(accel',Ts);
-    ekf = ekf.update_step_sensors(accel');
+    ekf = ekf.update_step_sensors(vel');
 
     x_traj(k,:) = ekf.x';
 end

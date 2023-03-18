@@ -54,63 +54,25 @@ classdef EKF_rocket
         end
 
 
-        function F = predict_jacobian(obj,vel_delta,dt)
+        function F = predict_jacobian_preintegrated(obj,dt)
             %{
-            Returns the F matrix (n by n, n = len(x)) for EKF calculations.
-            
-            F = jacobian w/ respect to x of function f s.t.
-            x^{.} = f(x^{^}, u, w)
-            
-            Note that the content of this matrix has been pre-determined,
-            Only numerical values are set at run-time.
+                Returns a preintegrated F matrix (jacobian w/ respect to x of
+                function f)
             %}
-
-            dvn = vel_delta(1);
-            dve = vel_delta(2);
-            dvd = vel_delta(3);
-            acc_bias_n = obj.x(7);
-            acc_bias_e = obj.x(7);
-            acc_bias_d = obj.x(7);
             
             F = [...
-                1, 0, 0,    dt, 0, 0,                   0, 0, 0
-                0, 1, 0,    0, dt, 0,                   0, 0, 0
-                0, 0, 1,    0, 0, dt,                   0, 0, 0
-                0, 0, 0,    (dvn - acc_bias_n), 0, 0,   1, 0, 0
-                0, 0, 0,    0, (dve - acc_bias_e), 0,   0, 1, 0
-                0, 0, 0,    0, 0, (dvd - acc_bias_d),   0, 0, 1
-                0, 0, 0,    0, 0, 0,                    0, 0, 0
-                0, 0, 0,    0, 0, 0,                    0, 0, 0
-                0, 0, 0,    0, 0, 0,                    0, 0, 0];
+                1, 0, 0,    dt, 0, 0,    0, 0, 0
+                0, 1, 0,    0, dt, 0,    0, 0, 0
+                0, 0, 1,    0, 0, dt,    0, 0, 0
+                0, 0, 0,    1, 0, 0,    1, 0, 0
+                0, 0, 0,    0, 1, 0,    0, 1, 0
+                0, 0, 0,    0, 0, 1,    0, 0, 1
+                0, 0, 0,    0, 0, 0,    1, 0, 0
+                0, 0, 0,    0, 0, 0,    0, 1, 0
+                0, 0, 0,    0, 0, 0,    0, 0, 1];
         end
 
-        function G = predict_process_noise(obj,w)
-            %{
-            Returns the G matrix (n by n, n = len(x)) for EKF calculations.
-            
-            G = jacobian w/ respect to w of function f s.t.
-            x^{.} = f(x^{^}, u, w)
-            
-            Note that the content of this matrix has been pre-determined,
-            Only numerical values are set at run-time.
-            %}
-            dvnCov = w(1);
-            dveCov = w(2);
-            dvdCov = w(3);
-
-            G = [...
-                0, 0, 0,    0, 0, 0,        0, 0, 0
-                0, 0, 0,    0, 0, 0,        0, 0, 0
-                0, 0, 0,    0, 0, 0,        0, 0, 0
-                0, 0, 0,    dvnCov, 0, 0,   0, 0, 0
-                0, 0, 0,    0, dveCov, 0,   0, 0, 0
-                0, 0, 0,    0, 0, dvdCov,   0, 0, 0
-                0, 0, 0,    0, 0, 0,        0, 0, 0
-                0, 0, 0,    0, 0, 0,        0, 0, 0
-                0, 0, 0,    0, 0, 0,        0, 0, 0];
-        end
-
-        function x = predict_state(obj,vel_delta,dt)
+        function x = predict_state(obj,u,dt)
             %{
                 Realises prediction computations.
                 Returns the a priori prediction. 
@@ -126,44 +88,40 @@ classdef EKF_rocket
             acc_bias_e = x(8);
             acc_bias_d = x(9);
 
-            dvn = vel_delta(1);
-            dve = vel_delta(2);
-            dvd = vel_delta(3);
+            an = u(1);
+            ae = u(2);
+            ad = u(3);
 
             x = [
                 pn + vn * dt
                 pe + ve * dt
                 pd + vd * dt
-                vn + (dvn - acc_bias_n)
-                ve + (dve - acc_bias_e)
-                vd + (dvd - acc_bias_d)
+                vn + an * dt + acc_bias_n
+                ve + ae * dt + acc_bias_e
+                vd + ad * dt + acc_bias_d
                 acc_bias_n
                 acc_bias_e
                 acc_bias_d];
         end
 
-        function obj = predict_step(obj,accB,Ts)
+        function obj = predict_step(obj,u,Ts)
             %{
                 Realises all the steps for a priori estimation.
             %}
             
             % state prediction
 
-            vel_delta = accB'*Ts;
-
-            x_new = obj.predict_state(vel_delta,Ts);
+            x_new = obj.predict_state(u,Ts);
 
             % covariance prediction
 
             [~,Qs,w] = obj.set_additive_noise(Ts);
 
-            G = obj.predict_process_noise(w);
-            F = obj.predict_jacobian(vel_delta,Ts);
-
-            P_new = F*obj.P*(F')+G+Qs;
+            F = obj.predict_jacobian_preintegrated(u,Ts);
+            P_new = F*obj.P*(F')+Qs;
             P_new = 0.5*(P_new+P_new');
 
-            obj.x = x_new;
+            obj.x = x_new + w;
             obj.P = P_new;
 
         end
@@ -193,6 +151,16 @@ classdef EKF_rocket
             [x_new, P_new] = update_step(z, h_x, H, R);
         end
 
+        function h_x = sensors_measurement_model(obj)
+            %{
+                Sensor model, currently : only uses velocity
+            %}
+            vn = obj.x(4);
+            ve = obj.x(5);
+            vd = obj.x(6);
+            h_x = [vn ve vd]';
+        end
+
         function H = sensors_measurement_jacobian(obj)
             %{
                 Jacobian matrix of the sensor model
@@ -203,15 +171,6 @@ classdef EKF_rocket
                 0, 0, 0,    0, 0, 1,    0, 0, 0];
         end
 
-        function h_x = sensors_measurement_model(obj)
-            %{
-                Sensor model, currently : only uses velocity
-            %}
-            vn = obj.x(4);
-            ve = obj.x(5);
-            vd = obj.x(6);
-            h_x = [vn ve vd]';
-        end
        
         function obj = EKF_rocket(x_init,init_process_cov)
             obj.x = x_init;
