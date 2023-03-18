@@ -159,7 +159,9 @@ classdef EKF_rocket
             S = H*obj.P*(H')+R;
             K = obj.P*(H')*inv(S);
             x_new = obj.x + K*inov;
-            P_new = (eye(nx)-K*H)*obj.P; % FIXME : why not (eye(nx)-K*H)*obj.P*(eye(nx)-K*H)' + K*R*K' ?
+            P_new = (eye(nx)-K*H)*obj.P;
+            % NB : Not using (I-K*H)*obj.P*(I-K*H)' + K*R*K'
+            % as it is implicitely included when computing S
         end
    
         function [x_new,P_new] = update_step_sensors(obj, z)
@@ -168,15 +170,15 @@ classdef EKF_rocket
                 Kept separate to split math and sensors.
             %}
             R = eye(3) * obj.measurement_uncertainty;
-            h_x = sensors_measurement_model();
-            H = sensors_measurement_jacobian();
+            h_x = measurement_model();
+            H = measurement_jacobian();
             
             [x_new, P_new] = update_step(z, h_x, H, R);
         end
 
-        function h_x = sensors_measurement_model(obj)
+        function h_x = measurement_model(obj)
             %{
-                Sensor model, currently : only uses velocity
+                Measurement model, currently : position velocity
             %}
             pn = obj.x(1);
             pe = obj.x(2);
@@ -188,9 +190,9 @@ classdef EKF_rocket
             h_x = [pn pe pd vn ve vd]';
         end
 
-        function H = sensors_measurement_jacobian(obj)
+        function H = measurement_jacobian(obj)
             %{
-                Jacobian matrix of the sensor model
+                Jacobian matrix of the measurement model
             %}
             H = [...
                 1, 0, 0,    0, 0, 0,    0, 0, 0
