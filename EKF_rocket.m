@@ -143,7 +143,7 @@ classdef EKF_rocket
             x = [
                 pn + vn * dt
                 pe + ve * dt
-                pd + vd * dt + baro_bias
+                pd + vd * dt %+ baro_bias
                 vn + an * dt + acc_bias_n
                 ve + ae * dt + acc_bias_e
                 vd + ad * dt + acc_bias_d
