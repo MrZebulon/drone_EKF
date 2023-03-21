@@ -21,8 +21,8 @@ Ts = 1/Fs;
 %% initial state
 
 Nav = 100;
-initstate = zeros(9,1);
-P0 = ones(9)*1e-9;
+initstate = zeros(10,1);
+P0 = ones(10)*1e-9;
 
 ekf = EKF_rocket(initstate,P0);
 
