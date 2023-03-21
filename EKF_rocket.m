@@ -98,9 +98,9 @@ classdef EKF_rocket
             cov_acc_n = w(1);
             cov_acc_e = w(2);
             cov_acc_d = w(3);
-            cov_bias_acc_n = w(1);
-            cov_bias_acc_e = w(2);
-            cov_bias_acc_d = w(3);
+            cov_bias_acc_n = w(4);
+            cov_bias_acc_e = w(5);
+            cov_bias_acc_d = w(6);
 
 
             
