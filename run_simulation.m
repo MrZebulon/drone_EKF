@@ -61,7 +61,7 @@ end
 
 %% Simulation loop
 
-x_traj = zeros(size(ld,1), 9);
+x_traj = zeros(size(ld,1), 10);
 
 if(~realtime_plots)
     tic
