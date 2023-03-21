@@ -4,6 +4,7 @@ Current sensor blend:
 
 a priori
     * imu (accelerometer)
+    * baro
 
 a posteriori
     * baro
@@ -101,6 +102,7 @@ classdef EKF_rocket
             cov_bias_acc_n = w(4);
             cov_bias_acc_e = w(5);
             cov_bias_acc_d = w(6);
+            cov_bias_baro = w(7);
 
 
             
@@ -114,7 +116,7 @@ classdef EKF_rocket
                 0, 0, 0             0, cov_bias_acc_e, 0,   0
                 0, 0, 0             0, 0, cov_bias_acc_d,   0
                 0, 0, 0             0, 0, 0,                0
-                0, 0, 0             0, 0, 0,                1];
+                0, 0, 0             0, 0, 0,                cov_bias_baro];
         end
 
         function x = predict_state(obj,u,dt)
