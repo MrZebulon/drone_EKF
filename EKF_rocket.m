@@ -1,3 +1,15 @@
+
+%{
+Current sensor blend:
+
+a priori
+    * imu (accelerometer)
+
+a posteriori
+    * baro
+
+%}
+
 classdef EKF_rocket
     properties
         %{
@@ -10,16 +22,16 @@ classdef EKF_rocket
         P;
         Ts;
 
-        AccelerometerNoise = 2;
+        accelerometer_noise = 2; % CALIBRATE
 
         % extra additive noise
-        AccelerometerBiasNoise =  2e-4;
+        accelerometer_bias_noise =  2e-4; % CALIBRATE
         additiveNoise = 1e-8;
 
         scale_var = -1;
-        vel_delta_bias_sigma = -1;
+        vel_delta_bias_sigma = -1; % CALIBRATE
 
-        measurement_uncertainty = 0.09; % FIXME calibration
+        measurement_uncertainty = 0.09; % CALIBRATE
 
     end
 
@@ -213,10 +225,10 @@ classdef EKF_rocket
             Fs = 1/Ts;
 
             obj.scale_var = 0.5*(1./(Fs.^2));
-            obj.vel_delta_bias_sigma = obj.scale_var .* obj.AccelerometerBiasNoise;
-            w = obj.scale_var.*[obj.AccelerometerNoise*ones(1,3)];
-            Qs = diag([obj.vel_delta_bias_sigma*ones(1,3)]);
+            w = obj.scale_var.*[obj.accelerometer_noise*ones(1,3)];
+            obj.vel_delta_bias_sigma = obj.scale_var .* obj.accelerometer_bias_noise;
 
+            Qs = diag([obj.vel_delta_bias_sigma*ones(1,3)]);
         end
 
 

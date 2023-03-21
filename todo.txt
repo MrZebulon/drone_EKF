@@ -36,3 +36,8 @@
 8th section (Plots)
     * Adapt to data and other sections
         => Keep what is relevent and add what's missing
+
+
+---------------------------------------------------------------------------
+h_x = pd
+H = [0 0 1 0 0 0 0 0 0];
