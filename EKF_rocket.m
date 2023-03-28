@@ -24,6 +24,7 @@ classdef EKF_rocket
         Ts;
 
         accelerometer_noise = 2; % CALIBRATE
+        barometer_noise = 1; % CALIBRATE
 
         % extra additive noise
         additiveNoise = 1e-8;
@@ -33,7 +34,7 @@ classdef EKF_rocket
         scale_var = -1;
         vel_delta_bias_sigma = -1; % CALIBRATE
 
-        baro_measurement_uncertainty = 0.09; % CALIBRATE
+        baro_measurement_uncertainty = 0.1; % CALIBRATE
 
     end
 
@@ -102,20 +103,19 @@ classdef EKF_rocket
             cov_bias_acc_n = w(4);
             cov_bias_acc_e = w(5);
             cov_bias_acc_d = w(6);
-            cov_bias_baro = w(7);
-
-
+            cov_baro = w(7);
+            cov_bias_baro = w(8);
             
             G = [...
-                0, 0, 0             0, 0, 0,                0
-                0, 0, 0             0, 0, 0,                0
-                0, 0, 0             0, 0, 0,                0
-                cov_acc_n, 0, 0     0, 0, 0,                0
-                0, cov_acc_e, 0     0, 0, 0,                0
-                0, 0, cov_acc_d     cov_bias_acc_n, 0, 0,   0
-                0, 0, 0             0, cov_bias_acc_e, 0,   0
-                0, 0, 0             0, 0, cov_bias_acc_d,   0
-                0, 0, 0             0, 0, 0,                0
+                0, 0, 0             0, 0, 0,                0, 0
+                0, 0, 0             0, 0, 0,                0, 0
+                0, 0, 0             0, 0, 0,                cov_baro, 0
+                cov_acc_n, 0, 0     0, 0, 0,                0, 0
+                0, cov_acc_e, 0     0, 0, 0,                0, 0
+                0, 0, cov_acc_d     cov_bias_acc_n, 0, 0,   0, 0
+                0, 0, 0             0, cov_bias_acc_e, 0,   0, 0
+                0, 0, 0             0, 0, cov_bias_acc_d,   0, 0
+                0, 0, 0             0, 0, 0,                0, 0
                 0, 0, 0             0, 0, 0,                cov_bias_baro];
         end
 
@@ -143,7 +143,7 @@ classdef EKF_rocket
             x = [
                 pn + vn * dt
                 pe + ve * dt
-                pd + vd * dt %+ baro_bias
+                pd + vd * dt + baro_bias
                 vn + an * dt + acc_bias_n
                 ve + ae * dt + acc_bias_e
                 vd + ad * dt + acc_bias_d
@@ -168,9 +168,9 @@ classdef EKF_rocket
 
             F = obj.predict_jacobian_preintegrated(u,Ts);
             G = obj.predict_covariance_preintegrated(w);
-            P_new = F*obj.P*(F')+G*Qs*(G');
 
-            P_new = 0.5*(P_new+P_new');
+            P_new = F*obj.P*(F')+G*Qs*(G');
+            P_new = 0.5*(P_new+P_new'); % WTF is this supposed to do ?
 
             obj.x = x_new;
             obj.P = P_new;
@@ -220,7 +220,6 @@ classdef EKF_rocket
                 0, 0, 1,    0, 0, 0,    0, 0, 0,    0];
         end
 
-       
         function obj = EKF_rocket(x_init,init_process_cov)
             obj.x = x_init;
             obj.P = ones(10)*init_process_cov;
@@ -230,10 +229,11 @@ classdef EKF_rocket
             Fs = 1/Ts;
 
             obj.scale_var = 0.5*(1./(Fs.^2));
-            w = obj.scale_var.*[obj.accelerometer_noise*ones(1,3), obj.accelerometer_bias_noise*ones(1,3), obj.baro_bias_noise*ones(1, 1)];
+            w = obj.scale_var.*[obj.accelerometer_noise*ones(1,3), obj.accelerometer_bias_noise*ones(1,3), obj.baro_noise*ones(1,1), obj.baro_bias_noise*ones(1, 1)];
             obj.vel_delta_bias_sigma = obj.scale_var.* obj.accelerometer_bias_noise;
+            obj.pos_delta_bias_sigma = obj.scale_var.* obj.baro_bias_noise;
 
-            Qs = diag([obj.additiveNoise.*ones(1,3), obj.vel_delta_bias_sigma*ones(1,3), obj.additiveNoise.*ones(1,1)]);
+            Qs = diag([obj.additiveNoise.*ones(1,3), obj.vel_delta_bias_sigma*ones(1,3), obj.additiveNoise.*ones(1,1), obj.pos_delta_bias_sigma*ones(1,1)]);
         end
 
 
