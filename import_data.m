@@ -1,8 +1,6 @@
-function [pos, vel, accel, gyro, quat] = import_data(file)    
+function [T, press, accel, gyro] = import_data(file)    
     T = readtable(file);
-    pos = T(:, [1, 2, 3]);
-    vel = T(:, [4, 5, 6]);
-    accel = T(:, [47, 8, 9]);
-    gyro = T(:, [10, 11, 12]);
-    quat = quaternion(T(:, [13, 14, 15, 16]));
+    press = T(:, 2);
+    accel = T(:, [3, 4, 5]);
+    gyro = T(:, [6, 7, 8]);
 end

@@ -3,7 +3,7 @@ clc,close all,clear all
 % state variable: x = [ posNED, velNED, accBias ] (9x1)
 
 %use realtime plotter from "Pose Estimation From Asynchronous Sensors" from Matlab's exemple
-realtime_plots = true;
+realtime_plots = false;
 
 % custom plots
 plot_pos_vel = true;
@@ -12,7 +12,10 @@ plot_bias = true;
 %% Load data
 %ld = load("drone_traj.mat");
 
-ld = import_data("");
+[T, press_array, accel_array, ~] = import_data("static_test_1.csv");
+press_array = table2array(press_array);
+accel_array = table2array(accel_array);
+data_points = size(T, 1);
 %% EKF parameters
 % sampling rate
 Fs = 160; % FIXME Sensor
@@ -61,25 +64,24 @@ end
 
 %% Simulation loop
 
-x_traj = zeros(size(ld,1), 10);
+x_traj = zeros(data_points, 10);
 
 if(~realtime_plots)
     tic
 end
 
-% for k = 1:size(ld.accel,1)
-for k = 1:size(ld,1)
+for k = 1:data_points
     
     % extracting next datapoint
-    pos = ld.pos(k, :);
-    vel = ld.vel(k, :);
-    accel = -ld.accel(k,:); % FIXME: '-' was there before
+    press = press_array(k, :);
+    vel = [0, 0, 0];
+    accel = accel_array(k,:); % FIXME: '-' was there before
     
     % updating state
     ekf = ekf.predict_step(accel',Ts);
-    ekf = ekf.update_step_sensors([pos vel]');
+    ekf = ekf.update_step_sensors([press]');
 
-    x_traj(k,:) = ekf.x';
+    x_traj(k,:) = (ekf.get_state());
 end
 
 if(~realtime_plots)

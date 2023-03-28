@@ -32,7 +32,8 @@ classdef EKF_rocket
         baro_bias_noise = 2e-4; % CALIBRATE
 
         scale_var = -1;
-        vel_delta_bias_sigma = -1; % CALIBRATE
+        vel_delta_bias_sigma = -1;
+        pos_delta_bias_sigma = -1;
 
         baro_measurement_uncertainty = 0.1; % CALIBRATE
 
@@ -72,7 +73,7 @@ classdef EKF_rocket
             P = obj.P;
         end
 
-        function F = predict_jacobian_preintegrated(obj,dt)
+        function F = predict_jacobian_preintegrated(obj, u, dt)
             %{
                 Returns a preintegrated F matrix (jacobian w/ respect to x of
                 function f)
@@ -91,7 +92,7 @@ classdef EKF_rocket
                 0, 0, 0,    0, 0, 0,    0, 0, 0,    1];
         end
 
-        function G = predict_covariance_preintegrated(obj,w)
+        function G = predict_covariance_preintegrated(obj, w)
             %{
                 Returns a preintegrated F matrix (jacobian w/ respect to w of
                 function f)
@@ -116,7 +117,7 @@ classdef EKF_rocket
                 0, 0, 0             0, cov_bias_acc_e, 0,   0, 0
                 0, 0, 0             0, 0, cov_bias_acc_d,   0, 0
                 0, 0, 0             0, 0, 0,                0, 0
-                0, 0, 0             0, 0, 0,                cov_bias_baro];
+                0, 0, 0             0, 0, 0,                0, cov_bias_baro];
         end
 
         function x = predict_state(obj,u,dt)
@@ -166,7 +167,7 @@ classdef EKF_rocket
 
             [~,Qs,w] = obj.set_additive_noise(Ts);
 
-            F = obj.predict_jacobian_preintegrated(u,Ts);
+            F = obj.predict_jacobian_preintegrated(u, Ts);
             G = obj.predict_covariance_preintegrated(w);
 
             P_new = F*obj.P*(F')+G*Qs*(G');
@@ -177,7 +178,7 @@ classdef EKF_rocket
 
         end
 
-        function [x_new,P_new]  = update_step(obj,z,h_x,H,R)
+        function obj = update_step(obj,z,h_x,H,R)
             %{
                 Turns the a priori prediction into the a posteriori one for a given measurement point
             %}
@@ -192,16 +193,16 @@ classdef EKF_rocket
             % as it is implicitely included when computing S
         end
    
-        function [x_new,P_new] = update_step_sensors(obj, z)
+        function obj = update_step_sensors(obj, z)
             %{
                 "Meta-function", use this to call update
                 Kept separate to split math and sensors.
             %}
             R = 1 * obj.baro_measurement_uncertainty;
-            h_x = measurement_model();
-            H = measurement_jacobian();
+            h_x = obj.measurement_model();
+            H = obj.measurement_jacobian();
             
-            [x_new, P_new] = update_step(z, h_x, H, R);
+            obj = obj.update_step(z, h_x, H, R);
         end
 
         function h_x = measurement_model(obj)
@@ -229,7 +230,7 @@ classdef EKF_rocket
             Fs = 1/Ts;
 
             obj.scale_var = 0.5*(1./(Fs.^2));
-            w = obj.scale_var.*[obj.accelerometer_noise*ones(1,3), obj.accelerometer_bias_noise*ones(1,3), obj.baro_noise*ones(1,1), obj.baro_bias_noise*ones(1, 1)];
+            w = obj.scale_var.*[obj.accelerometer_noise*ones(1,3), obj.accelerometer_bias_noise*ones(1,3), obj.barometer_noise*ones(1,1), obj.baro_bias_noise*ones(1, 1)];
             obj.vel_delta_bias_sigma = obj.scale_var.* obj.accelerometer_bias_noise;
             obj.pos_delta_bias_sigma = obj.scale_var.* obj.baro_bias_noise;
 
