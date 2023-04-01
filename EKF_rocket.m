@@ -23,19 +23,19 @@ classdef EKF_rocket
         P;
         Ts;
 
-        accelerometer_noise = 2; % CALIBRATE
-        barometer_noise = 1; % CALIBRATE
+        accelerometer_noise = 7.05E-04;
+        barometer_noise = 1.52e-5; % change units: currently in hPa
 
         % extra additive noise
         additiveNoise = 1e-8;
-        accelerometer_bias_noise =  2e-4; % CALIBRATE
-        baro_bias_noise = 2e-4; % CALIBRATE
+        accelerometer_bias_noise =  6.89e-4;
+        baro_bias_noise = 2.98e-7; % change units: currently in hPa
 
         scale_var = -1;
         vel_delta_bias_sigma = -1;
         pos_delta_bias_sigma = -1;
 
-        baro_measurement_uncertainty = 0.1; % CALIBRATE
+        baro_measurement_uncertainty = 0.1;
 
     end
 
