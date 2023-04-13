@@ -108,13 +108,8 @@ classdef EKF_rocket
 
         function F = predict_jacobian(obj,ang_delta,vel_delta,dt)
             %{
-            Returns the F matrix for EKF calculations.
-            
-            F = jacobian w/ respect to x of function f s.t.
-            x^{.} = f(x^{^}, u) + w
-            
-            Note that the content of this matrix has been pre-determined,
-            Only numerical values are set at run-time.
+                Returns the F matrix (jacobian w/ respect to x of
+                function f) integrated over time
             %}
             q0 = obj.x(1);
             q1 = obj.x(2);
@@ -168,14 +163,10 @@ classdef EKF_rocket
 
         function G = predict_process_noise(obj,w)
             %{
-            Returns the G matrix for EKF calculations.
-            
-            G = jacobian w/ respect to w of function f s.t.
-            x^{.} = f(x^{^}, u) + w
-            
-            Note that the content of this matrix has been pre-determined,
-            Only numerical values are set at run-time.
+                Returns the G matrix (jacobian w/ respect to w of
+                function f) integrated over time
             %}
+
             daxCov = w(1);
             dayCov = w(2);
             dazCov = w(3);
@@ -217,7 +208,7 @@ classdef EKF_rocket
 
         function x = predict_state(obj,ang_delta,vel_delta,dt)
             %{
-                Realises prediction computations.
+                Performs prediction computations.
                 Returns the a priori prediction. 
             %}
             x = obj.x;
@@ -292,7 +283,7 @@ classdef EKF_rocket
 
         function obj = predict_step(obj,accB,omegaB,Ts)
             %{
-                Realises all the steps within one cycle.
+                Performs all the steps within one cycle.
             %}
             
             % state prediction
