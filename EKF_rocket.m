@@ -94,7 +94,7 @@ classdef EKF_rocket
 
         function G = predict_covariance_preintegrated(obj, w)
             %{
-                Returns a preintegrated F matrix (jacobian w/ respect to w of
+                Returns a preintegrated G matrix (jacobian w/ respect to w of
                 function f)
             %}
 
@@ -156,7 +156,7 @@ classdef EKF_rocket
 
         function obj = predict_step(obj,u,Ts)
             %{
-                Realises all the steps for a priori estimation.
+                Performs all the steps for a priori estimation.
             %}
             
             % state prediction
