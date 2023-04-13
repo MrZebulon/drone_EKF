@@ -86,9 +86,9 @@ classdef EKF_rocket
                 0, 0, 0,    1, 0, 0,    1, 0, 0,    0
                 0, 0, 0,    0, 1, 0,    0, 1, 0,    0
                 0, 0, 0,    0, 0, 1,    0, 0, 1,    0
-                0, 0, 0,    0, 0, 0,    1, 0, 0,    0
-                0, 0, 0,    0, 0, 0,    0, 1, 0,    0
-                0, 0, 0,    0, 0, 0,    0, 0, 1,    0
+                0, 0, 0,    dt, 0, 0,   1, 0, 0,    0
+                0, 0, 0,    0, dt, 0,   0, 1, 0,    0
+                0, 0, 0,    0, 0, dt,   0, 0, 1,    0
                 0, 0, 0,    0, 0, 0,    0, 0, 0,    1];
         end
 
@@ -144,10 +144,10 @@ classdef EKF_rocket
             x = [
                 pn + vn * dt
                 pe + ve * dt
-                pd + vd * dt + baro_bias
-                vn + an * dt + acc_bias_n
-                ve + ae * dt + acc_bias_e
-                vd + ad * dt + acc_bias_d
+                pd + vd * dt
+                vn + (an + acc_bias_n) * dt
+                ve + (ae + acc_bias_e) * dt
+                vd + (ad + acc_bias_d) * dt
                 acc_bias_n
                 acc_bias_e
                 acc_bias_d
