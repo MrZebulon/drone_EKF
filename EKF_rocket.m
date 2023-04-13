@@ -234,7 +234,7 @@ classdef EKF_rocket
             obj.vel_delta_bias_sigma = obj.scale_var.* obj.accelerometer_bias_noise;
             obj.pos_delta_bias_sigma = obj.scale_var.* obj.baro_bias_noise;
 
-            Qs = diag([obj.additiveNoise.*ones(1,3), obj.vel_delta_bias_sigma*ones(1,3), obj.additiveNoise.*ones(1,1), obj.pos_delta_bias_sigma*ones(1,1)]);
+            Qs = diag([obj.additiveNoise.*ones(1,3), obj.vel_delta_bias_sigma.*ones(1,3), obj.additiveNoise.*ones(1,1), obj.pos_delta_bias_sigma.*ones(1,1)]);
         end
 
 
