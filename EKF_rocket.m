@@ -107,10 +107,9 @@ classdef EKF_rocket
         end
 
         function F = predict_jacobian(obj,ang_delta,vel_delta,dt)
-            %{
-                Returns the F matrix (jacobian w/ respect to x of
-                function f) integrated over time
-            %}
+            % The F matrix is the Jacobian matrix of the state update
+            % function f(x, u, w) with respect to the state vector x.
+
             q0 = obj.x(1);
             q1 = obj.x(2);
             q2 = obj.x(3);
@@ -161,11 +160,9 @@ classdef EKF_rocket
 
         end
 
-        function G = predict_process_noise(obj,w)
-            %{
-                Returns the G matrix (jacobian w/ respect to w of
-                function f) integrated over time
-            %}
+        function Q = predict_process_noise(obj,w)
+            % The Q matrix is the process Covariance Matrix.
+            % Q(i,j) = Cov(x_i, x_j)
 
             daxCov = w(1);
             dayCov = w(2);
@@ -181,7 +178,7 @@ classdef EKF_rocket
             q3 = obj.x(4);
 
 
-            G = [ ...
+            Q = [ ...
                 (daxCov*q1^2)/4 + (dayCov*q2^2)/4 + (dazCov*q3^2)/4, (dayCov*q2*q3)/4 - (daxCov*q0*q1)/4 - (dazCov*q2*q3)/4, (dazCov*q1*q3)/4 - (dayCov*q0*q2)/4 - (daxCov*q1*q3)/4, (daxCov*q1*q2)/4 - (dayCov*q1*q2)/4 - (dazCov*q0*q3)/4, 0, 0, 0,                                                                                                                                                                0,                                                                                                                                                                0,                                                                                                                                                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 (dayCov*q2*q3)/4 - (daxCov*q0*q1)/4 - (dazCov*q2*q3)/4,    (daxCov*q0^2)/4 + (dazCov*q2^2)/4 + (dayCov*q3^2)/4, (daxCov*q0*q3)/4 - (dayCov*q0*q3)/4 - (dazCov*q1*q2)/4, (dazCov*q0*q2)/4 - (dayCov*q1*q3)/4 - (daxCov*q0*q2)/4, 0, 0, 0,                                                                                                                                                                0,                                                                                                                                                                0,                                                                                                                                                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 (dazCov*q1*q3)/4 - (dayCov*q0*q2)/4 - (daxCov*q1*q3)/4, (daxCov*q0*q3)/4 - (dayCov*q0*q3)/4 - (dazCov*q1*q2)/4,    (dayCov*q0^2)/4 + (dazCov*q1^2)/4 + (daxCov*q3^2)/4, (dayCov*q0*q1)/4 - (daxCov*q2*q3)/4 - (dazCov*q0*q1)/4, 0, 0, 0,                                                                                                                                                                0,                                                                                                                                                                0,                                                                                                                                                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -300,7 +297,7 @@ classdef EKF_rocket
             G = obj.predict_process_noise(w);
             F = obj.predict_jacobian(ang_delta,vel_delta,Ts);
 
-            P_new = F*obj.P*(F')+G+Qs;
+            P_new = F*obj.P*(F')+Q+Qs;
 
             x_new = obj.quaternion_normalisation(x_new);
             P_new = 0.5*(P_new+P_new');
