@@ -1,41 +1,42 @@
-
-%{
-Current sensor blend:
-
-a priori
-    * imu (accelerometer)
-    * baro
-
-a posteriori
-    * baro
-
-%}
-
 classdef EKF_rocket
+    %
+    % State vector definition
+    %   1-3 : position
+    %   4-6 : speed
+    %   7-9 : accel bias
+    %   10 : baro bias
+    %
+    % Control vector definition
+    %   1-3 : acceleration
+    %
+    % Noise vector definition
+    %   1-3 : acceleration noise
+    %   4 : barometer noise
+    %   5-7 : acceleration bias noise
+    %   8 : barometer bias noise
     properties
-        %{
-            x: system state
-            P: system covariance
-            Ts: integration period
-        %}
-        
         x;
         P;
         Ts;
 
-        accelerometer_noise = 7.05E-04;
-        barometer_noise = 1.52e-5; % change units: currently in hPa
+        % units = m/s
+        accel_bias = [-0.026842656242568 0.033420780321046 -0.007947030636161];
+        accel_noise = 1;
+        accel_bias_noise = 2e-4;
 
-        % extra additive noise
+        % units = m
+        baro_bias = 361.3487972164834;
+        baro_noise = 0.0011529662809109404;
+        baro_bias_noise = 2.8486463440220755e-06;
+
+        baro_measurement_uncertainty = 0.1;
+        
         additiveNoise = 1e-8;
-        accelerometer_bias_noise =  6.89e-4;
-        baro_bias_noise = 2.98e-7; % change units: currently in hPa
 
         scale_var = -1;
         vel_delta_bias_sigma = -1;
         pos_delta_bias_sigma = -1;
 
-        baro_measurement_uncertainty = 0.1;
 
     end
 
@@ -79,45 +80,40 @@ classdef EKF_rocket
                 function f)
             %}
             
-            F = [...
-                1, 0, 0,    dt, 0, 0,   0, 0, 0,    0
-                0, 1, 0,    0, dt, 0,   0, 0, 0,    0
-                0, 0, 1,    0, 0, dt,   0, 0, 0,    0
-                0, 0, 0,    1, 0, 0,    dt, 0, 0,   0
-                0, 0, 0,    0, 1, 0,    0, dt, 0,   0
-                0, 0, 0,    0, 0, 1,    0, 0, dt,   0
-                0, 0, 0,    0, 0, 0,    1, 0, 0,    0
-                0, 0, 0,    0, 0, 0,    0, 1, 0,    0
-                0, 0, 0,    0, 0, 0,    0, 0, 1,    0
-                0, 0, 0,    0, 0, 0,    0, 0, 0,    1];
+             F = [...
+                0, 0, 0,    obj.dt, 0, 0,    0, 0, 0,      0
+                0, 0, 0,    0, obj.dt, 0,    0, 0, 0,      0
+                0, 0, 0,    0, 0, obj.dt,    0, 0, 0,      0
+                0, 0, 0,    0, 0, 0,         1, 0, 0,      0
+                0, 0, 0,    0, 0, 0,         0, 1, 0,      0
+                0, 0, 0,    0, 0, 0,         0, 0, 1,      0
+                0, 0, 0,    0, 0, 0,         0, 0, 0,      0
+                0, 0, 0,    0, 0, 0,         0, 0, 0,      0
+                0, 0, 0,    0, 0, 0,         0, 0, 0,      0
+                0, 0, 0,    0, 0, 0,         0, 0, 0,      0];
+
+             F = F + eye(size(F));
         end
 
-        function G = predict_covariance_preintegrated(obj, w)
-            %{
-                Returns a preintegrated G matrix (jacobian w/ respect to w of
-                function f)
-            %}
+        function Q = predict_covariance_preintegrated(obj, w)
+            % The Q matrix is the process Covariance Matrix.
+            % Q(i,j) = Cov(x_i, x_j)
 
-            cov_acc_n = w(1);
-            cov_acc_e = w(2);
-            cov_acc_d = w(3);
-            cov_bias_acc_n = w(4);
-            cov_bias_acc_e = w(5);
-            cov_bias_acc_d = w(6);
-            cov_baro = w(7);
-            cov_bias_baro = w(8);
-            
-            G = [...
-                0, 0, 0     0,   0, 0, 0,   0
-                0, 0, 0     0,   0, 0, 0,   0
-                0, 0, 0     0,   0, 0, 0,   0
-                1, 0, 0     0,   0, 0, 0,   0
-                0, 1, 0     0,   0, 0, 0,   0
-                0, 0, 1     1,   0, 0, 0,   0
-                0, 0, 0     0,   1, 0, 0,   0
-                0, 0, 0     0,   0, 1, 0,   0
-                0, 0, 0     0,   0, 0, 1,   0
-                0, 0, 0     0,   0, 0, 0,   1];
+            dvxCov = w(1);
+            dvyCov = w(2);
+            dvzCov = w(3);
+                       
+           Q = [...
+                0, 0, 0,    0, 0, 0,                    0, 0, 0,      0
+                0, 0, 0,    0, 0, 0,                    0, 0, 0,      0
+                0, 0, 0,    0, 0, 0,                    0, 0, 0,      0
+                0, 0, 0,    dvxCov*obj.Ts^2, 0, 0,      0, 0, 0,      0
+                0, 0, 0,    0, dvyCov*obj.Ts^2, 0,      0, 0, 0,      0
+                0, 0, 0,    0, 0, dvzCov*obj.Ts^2,      0, 0, 0,      0
+                0, 0, 0,    0, 0, 0,                    0, 0, 0,      0
+                0, 0, 0,    0, 0, 0,                    0, 0, 0,      0
+                0, 0, 0,    0, 0, 0,                    0, 0, 0,      0
+                0, 0, 0,    0, 0, 0,                    0, 0, 0,      0];
         end
 
         function x = predict_state(obj,u,dt)
@@ -135,7 +131,7 @@ classdef EKF_rocket
             acc_bias_e = x(8);
             acc_bias_d = x(9);
 
-            baro_bias = x(10);
+            bias_baro = x(10);
 
             an = u(1);
             ae = u(2);
@@ -151,7 +147,7 @@ classdef EKF_rocket
                 acc_bias_n
                 acc_bias_e
                 acc_bias_d
-                baro_bias];
+                bias_baro];
         end
 
         function obj = predict_step(obj,u,Ts)
@@ -226,15 +222,15 @@ classdef EKF_rocket
             obj.P = ones(10)*init_process_cov;
         end
 
-        function [obj,Qs,w] = set_additive_noise(obj,Ts)
-            Fs = 1/Ts;
+        function [Qs, w] = generate_noise(obj)
+            Fs = 1/obj.dt;
 
             obj.scale_var = 0.5*(1./(Fs.^2));
-            w = obj.scale_var.*[obj.accelerometer_noise*ones(1,3), obj.accelerometer_bias_noise*ones(1,3), obj.barometer_noise*ones(1,1), obj.baro_bias_noise*ones(1, 1)];
-            obj.vel_delta_bias_sigma = obj.scale_var.* obj.accelerometer_bias_noise;
+            obj.vel_delta_bias_sigma = obj.scale_var.* obj.accel_bias_noise;
             obj.pos_delta_bias_sigma = obj.scale_var.* obj.baro_bias_noise;
 
-            Qs = diag([obj.additiveNoise.*ones(1,3), obj.vel_delta_bias_sigma.*ones(1,3), obj.additiveNoise.*ones(1,1), obj.pos_delta_bias_sigma.*ones(1,1)]);
+            Qs = diag([obj.additiveNoise.*ones(1,6), obj.vel_delta_bias_sigma*ones(1,3), obj.pos_delta_bias_sigma*ones(1,1)]);
+            w = obj.scale_var.*[obj.accel_noise*ones(1,3), obj.baro_noise*ones(1,1)];
         end
 
 
